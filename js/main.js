@@ -2,14 +2,30 @@ const header = document.querySelector(".site-header");
 const menuBtn = document.querySelector(".menu-btn");
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* Lenis smooth scroll */
+const lenis =
+  !reduceMotion && typeof Lenis !== "undefined"
+    ? new Lenis({
+        autoRaf: true,
+        lerp: 0.09,
+        smoothWheel: true,
+        anchors: { offset: -74, duration: 1.2 },
+      })
+    : null;
+
+function getScrollY() {
+  return lenis ? lenis.scroll : window.scrollY || window.pageYOffset || 0;
+}
+
 function onScroll() {
   if (!header) return;
-  const solid = window.scrollY > 40;
+  const solid = getScrollY() > 40;
   header.classList.toggle("is-solid", solid);
   header.classList.toggle("is-top", !solid);
 }
 onScroll();
 window.addEventListener("scroll", onScroll, { passive: true });
+if (lenis) lenis.on("scroll", onScroll);
 
 if (menuBtn && header) {
   menuBtn.addEventListener("click", () => {
@@ -197,7 +213,7 @@ let heroTick = false;
 function renderHeroMotion() {
   if (!hero || !heroImgs.length) return;
 
-  const y = Math.max(0, window.scrollY);
+  const y = Math.max(0, getScrollY());
   const h = hero.offsetHeight || window.innerHeight;
   const progress = Math.min(y / h, 1);
 
@@ -252,4 +268,5 @@ if (hero && !reduceMotion) {
 
 window.addEventListener("scroll", onHeroScroll, { passive: true });
 window.addEventListener("resize", onHeroScroll, { passive: true });
+if (lenis) lenis.on("scroll", onHeroScroll);
 renderHeroMotion();

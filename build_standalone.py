@@ -18,6 +18,7 @@ fonts_css = font_match.group(1).strip()
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 css = (ROOT / "css" / "styles.css").read_text(encoding="utf-8")
 js = (ROOT / "js" / "main.js").read_text(encoding="utf-8")
+lenis_js = (ROOT / "js" / "lenis.min.js").read_text(encoding="utf-8")
 
 # Single-page nav / CTAs
 link_map = [
@@ -72,8 +73,8 @@ if head_old not in html:
 
 html = html.replace(head_old, head_new)
 html = html.replace(
-    '  <script src="js/main.js"></script>',
-    f"  <script>\n{js}\n  </script>",
+    '  <script src="js/lenis.min.js"></script>\n  <script src="js/main.js"></script>',
+    f"  <script>\n{lenis_js}\n  </script>\n  <script>\n{js}\n  </script>",
 )
 html = html.replace(
     '<a class="logo" href="#main">Twenty Two</a>',
@@ -89,9 +90,11 @@ checks = {
     "reveal-left": "reveal-left" in css,
     "hero overflow": "overflow: hidden" in css and ".hero {" in css,
     "bidirectional reveal": "entry.isIntersecting" in js,
+    "lenis init": "new Lenis" in js,
+    "lenis bundled": "globalThis.Lenis=Lenis" in html or "window.lenisVersion" in html,
     "storebox media": "media.storebox.ai" in html,
     "inline style": "<style>" in html,
-    "inline script": "<script>\nconst header" in html or "<script>\r\nconst header" in html or "setupReveals" in html,
+    "inline script": "setupReveals" in html,
 }
 for label, ok in checks.items():
     print(("OK" if ok else "MISSING"), label)
