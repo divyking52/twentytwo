@@ -3,30 +3,23 @@ import re
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "standalone"
+existing = (OUT / "index.html").read_text(encoding="utf-8")
+
+# Keep existing local @font-face block from previous standalone build
+font_match = re.search(
+    r"/\* Local fonts \*/\s*(.*?)/\* Site styles \*/",
+    existing,
+    re.S,
+)
+if not font_match:
+    raise SystemExit("Could not find local fonts block in standalone/index.html")
+fonts_css = font_match.group(1).strip()
 
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 css = (ROOT / "css" / "styles.css").read_text(encoding="utf-8")
 js = (ROOT / "js" / "main.js").read_text(encoding="utf-8")
-fonts_css = (OUT / "assets" / "fonts.css").read_text(encoding="utf-8")
 
-repl = {
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/icon/salontwentytwoo.png": "assets/favicon.png",
-    "https://salontwentytwo.co.in/commonassets/image/9814762a-aac2-454d-8592-63a576bd0278.webp": "assets/stylists.webp",
-    "https://salontwentytwo.co.in/commonassets/image/329d7ed2-7be4-46cd-8cb4-c34315d2cb90.webp": "assets/guest-care.webp",
-    "https://salontwentytwo.co.in/commonassets/image/a6d12d3e-d0ba-4a93-b8c1-878f510b2e84.webp": "assets/interior.webp",
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/image/60e9f46d-bc82-4783-93fd-ec5af1e6a46e.file.webp": "assets/haircut.webp",
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/image/f4be8bb4-12c5-4d9e-be26-01d79dccb7ab.file.webp": "assets/colour.webp",
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/image/72e5e2ea-58a4-4d22-8ff3-fa5120cab917.file.webp": "assets/bridal.webp",
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/image/ab468da8-f8b5-4b5c-9465-8d82f983092d.file.webp": "assets/facial.webp",
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/image/0b7f4c33-9eb3-41b8-b83c-b60cac3ee71f.webp": "assets/ritual.webp",
-    "https://salontwentytwo.co.in/appassets/mediaassets/8f5906c7f3e34d8581a1cfd8bcf0bdb7/image/logo-cropped-1787114045512-0.png": "assets/logo.png",
-    "https://assets.mixkit.co/videos/40583/40583-thumb-720-0.jpg": "assets/care-video-poster.jpg",
-    "https://assets.mixkit.co/videos/40583/40583-720.mp4": "assets/care-video.mp4",
-}
-
-for old, new in repl.items():
-    html = html.replace(old, new)
-
+# Single-page nav / CTAs
 link_map = [
     ('href="index.html"', 'href="#main"'),
     ('href="about.html"', 'href="#about"'),
@@ -59,13 +52,13 @@ html = html.replace(
     1,
 )
 
-head_old = """  <link rel="icon" href="assets/favicon.png">
+head_old = """  <link rel="icon" href="https://media.storebox.ai/media/6029c648-5071-4e1b-ab3d-b14528fa88d9/86cacdd5-f96c-456b-978b-0a0b01117961/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">"""
 
-head_new = f"""  <link rel="icon" href="assets/favicon.png">
+head_new = f"""  <link rel="icon" href="https://media.storebox.ai/media/6029c648-5071-4e1b-ab3d-b14528fa88d9/86cacdd5-f96c-456b-978b-0a0b01117961/favicon.png">
   <style>
 /* Local fonts */
 {fonts_css}
@@ -75,7 +68,7 @@ head_new = f"""  <link rel="icon" href="assets/favicon.png">
   </style>"""
 
 if head_old not in html:
-    raise SystemExit("HEAD block not found — check asset remap for favicon")
+    raise SystemExit("HEAD block not found — check favicon / font links in index.html")
 
 html = html.replace(head_old, head_new)
 html = html.replace(
@@ -91,12 +84,14 @@ out_path = OUT / "index.html"
 out_path.write_text(html, encoding="utf-8")
 print(f"Wrote {out_path} ({out_path.stat().st_size} bytes)")
 
-remotes = sorted(set(re.findall(r"https?://[^\s\"']+", html)))
-print("Remaining remote URLs:")
-for u in remotes:
-    print(" ", u)
-
-print("\nAssets:")
-for p in sorted((OUT / "assets").rglob("*")):
-    if p.is_file():
-        print(f"  {p.relative_to(OUT)} ({p.stat().st_size})")
+# Sanity checks
+checks = {
+    "reveal-left": "reveal-left" in css,
+    "hero overflow": "overflow: hidden" in css and ".hero {" in css,
+    "bidirectional reveal": "entry.isIntersecting" in js,
+    "storebox media": "media.storebox.ai" in html,
+    "inline style": "<style>" in html,
+    "inline script": "<script>\nconst header" in html or "<script>\r\nconst header" in html or "setupReveals" in html,
+}
+for label, ok in checks.items():
+    print(("OK" if ok else "MISSING"), label)
