@@ -48,7 +48,7 @@ document.querySelectorAll(".stack").forEach((stack) => {
   });
 });
 
-/* Scroll reveals — Framer-style opacity + 10px rise */
+/* Scroll reveals — slide in when entering, slide out when leaving */
 function setupReveals() {
   const targets = document.querySelectorAll(
     [
@@ -93,7 +93,7 @@ function setupReveals() {
       el.classList.contains("package") ||
       el.classList.contains("note")
     ) {
-      el.style.setProperty("--reveal-delay", `${(i % 6) * 60}ms`);
+      el.style.setProperty("--reveal-delay", `${(i % 6) * 50}ms`);
     }
   });
 
@@ -107,25 +107,15 @@ function setupReveals() {
   const io = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add("is-in");
-        io.unobserve(entry.target);
+        entry.target.classList.toggle("is-in", entry.isIntersecting);
       });
     },
-    { threshold: 0.14, rootMargin: "0px 0px -6% 0px" }
+    { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
   );
 
   revealEls.forEach((el) => io.observe(el));
 }
 setupReveals();
-
-/* Hero entrance */
-if (!reduceMotion) {
-  document.querySelector(".hero")?.classList.add("hero-animate");
-  requestAnimationFrame(() => {
-    document.querySelector(".hero")?.classList.add("is-ready");
-  });
-}
 
 /* FAQ accordion with height animation */
 document.querySelectorAll(".acc").forEach((item) => {
@@ -195,32 +185,70 @@ if (!reduceMotion) {
   });
 }
 
-/* Soft hero entrance + parallax */
+/* Hero entrance + smooth parallax (rAF) */
 const hero = document.querySelector(".hero");
 const heroImgs = hero ? [...hero.querySelectorAll("img")] : [];
-let heroReady = reduceMotion;
+const heroCopy = hero?.querySelector(".hero-copy");
+const heroFoot = hero?.querySelector(".hero-foot");
+let heroParallaxOn = false;
+let heroTick = false;
+
 function renderHeroMotion() {
   if (!hero || !heroImgs.length) return;
-  const y = Math.min(window.scrollY, hero.offsetHeight || 0);
-  const shift = reduceMotion ? 0 : y * 0.22;
-  const scale = heroReady ? 1 : 1.045;
-  heroImgs.forEach((img) => {
-    img.style.transform = `translate3d(0, ${shift}px, 0) scale(${scale})`;
-  });
+
+  const y = Math.max(0, window.scrollY);
+  const h = hero.offsetHeight || window.innerHeight;
+  const progress = Math.min(y / h, 1);
+
+  if (!reduceMotion && heroParallaxOn) {
+    heroImgs.forEach((img, i) => {
+      const speed = 0.22 + i * 0.08;
+      const shift = y * speed;
+      img.style.transform = `translate3d(0, ${shift}px, 0) scale(1.08)`;
+    });
+  }
+
+  if (heroCopy) {
+    const fade = Math.max(0, 1 - progress * 1.35);
+    const lift = reduceMotion ? 0 : progress * -48;
+    heroCopy.style.opacity = String(fade);
+    heroCopy.style.transform = `translate3d(0, ${lift}px, 0)`;
+  }
+  if (heroFoot) {
+    const fade = Math.max(0, 1 - progress * 1.55);
+    const lift = reduceMotion ? 0 : progress * -28;
+    heroFoot.style.opacity = String(fade);
+    heroFoot.style.transform = `translate3d(0, ${lift}px, 0)`;
+  }
 }
-if (!reduceMotion && hero) {
-  heroImgs.forEach((img) => {
-    img.style.transition = "transform 1.35s cubic-bezier(0.22, 1, 0.36, 1)";
-  });
+
+function onHeroScroll() {
+  if (heroTick) return;
+  heroTick = true;
   requestAnimationFrame(() => {
-    heroReady = true;
+    heroTick = false;
     renderHeroMotion();
-    setTimeout(() => {
-      heroImgs.forEach((img) => {
-        img.style.transition = "transform 0.05s linear";
-      });
-    }, 1400);
   });
 }
-window.addEventListener("scroll", renderHeroMotion, { passive: true });
+
+if (hero && !reduceMotion) {
+  hero.classList.add("hero-animate");
+  requestAnimationFrame(() => {
+    hero.classList.add("is-ready");
+    heroImgs.forEach((img) => {
+      img.style.transform = "translate3d(0, 0, 0) scale(1.08)";
+    });
+  });
+  setTimeout(() => {
+    hero.classList.add("is-parallax");
+    heroParallaxOn = true;
+    renderHeroMotion();
+  }, 1450);
+} else if (hero) {
+  heroParallaxOn = true;
+  renderHeroMotion();
+}
+
+window.addEventListener("scroll", onHeroScroll, { passive: true });
+window.addEventListener("resize", onHeroScroll, { passive: true });
 renderHeroMotion();
