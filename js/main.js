@@ -81,10 +81,11 @@ function setupReveals() {
   );
 
   targets.forEach((el, i) => {
-    if (el.classList.contains("stack-item") || el.classList.contains("film")) {
+    if (el.classList.contains("stack-item")) {
       el.classList.add("reveal-fade");
     } else {
       el.classList.add("reveal");
+      el.classList.add(i % 2 === 0 ? "reveal-left" : "reveal-right");
     }
     if (
       el.classList.contains("stack-item") ||
